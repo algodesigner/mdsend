@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mdsend"
+version = "0.1.0"
+description = "File-based social media publisher. Write markdown, post to LinkedIn, Bluesky, and Mastodon."
+readme = "README.md"
+authors = [
+    {name = "Vlad Shurupov"},
+]
+license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "requests",
+    "python-dotenv",
+    "atproto",
+    "Pillow",
+    "Mastodon.py",
+]
+
+[project.urls]
+Homepage = "https://github.com/algodesigner/mdsend"
+
+[project.scripts]
+mdsend = "mdsend.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
