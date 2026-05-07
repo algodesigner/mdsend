@@ -480,13 +480,13 @@ class TestThreadPrefix:
 class TestDryRun:
     def test_parse_args_defaults(self):
         from mdsend import parse_args
-        platforms, dry_run = parse_args([])
+        platforms, dry_run, _new_slug = parse_args([])
         assert platforms == ALL_PLATFORMS
         assert dry_run  # dry-run is the default now
 
     def test_parse_args_platforms(self):
         from mdsend import parse_args
-        platforms, dry_run = parse_args(
+        platforms, dry_run, _new_slug = parse_args(
             ["--platforms", "linkedin", "bluesky"]
         )
         assert platforms == {"linkedin", "bluesky"}
@@ -494,19 +494,19 @@ class TestDryRun:
 
     def test_parse_args_dry_run(self):
         from mdsend import parse_args
-        platforms, dry_run = parse_args(["--dry-run"])
+        platforms, dry_run, _new_slug = parse_args(["--dry-run"])
         assert platforms == ALL_PLATFORMS
         assert dry_run
 
     def test_parse_args_publish(self):
         from mdsend import parse_args
-        platforms, dry_run = parse_args(["--publish"])
+        platforms, dry_run, _new_slug = parse_args(["--publish"])
         assert platforms == ALL_PLATFORMS
         assert not dry_run
 
     def test_parse_args_platforms_and_publish(self):
         from mdsend import parse_args
-        platforms, dry_run = parse_args(
+        platforms, dry_run, _new_slug = parse_args(
             ["--platforms", "bluesky", "--publish"]
         )
         assert platforms == {"bluesky"}
@@ -514,7 +514,7 @@ class TestDryRun:
 
     def test_parse_args_publish_overrides_dry_run(self):
         from mdsend import parse_args
-        platforms, dry_run = parse_args(
+        platforms, dry_run, _new_slug = parse_args(
             ["--publish", "--dry-run"]
         )
         # --publish is a store_false on dry_run, so --dry-run won't undo it
