@@ -3,9 +3,13 @@ mdsend CLI — argument parsing and main entry point.
 """
 
 import argparse
+import os
+import subprocess
 import sys
+from datetime import datetime
+from pathlib import Path
 
-from mdsend.core import ALL_PLATFORMS, discover_posts
+from mdsend.core import ALL_PLATFORMS, POSTS_DIR, discover_posts
 from mdsend.platforms import PLATFORM_HANDLERS
 
 
@@ -37,7 +41,42 @@ def parse_args(argv: list[str]) -> tuple[set[str], bool]:
     return set(parsed.platforms), parsed.dry_run
 
 
+def _cmd_new():
+    """Handle the --new subcommand: create a post directory and open editor."""
+    slug = "untitled"
+    editor = os.environ.get("EDITOR", "vi")
+
+    # Parse remaining args after --new
+    args = sys.argv[sys.argv.index("--new") + 1 :]
+    if args and not args[0].startswith("--"):
+        raw = args[0]
+        slug = (
+            raw.lower().replace(" ", "-").replace("_", "-")
+        )
+        slug = "".join(c for c in slug if c.isalnum() or c == "-")
+        slug = slug.strip("-") or "untitled"
+
+    now = datetime.now().strftime("%Y-%m-%d_%H-%M")
+    dir_name = f"{now}_{slug}"
+    post_dir = POSTS_DIR / dir_name
+    post_dir.mkdir(parents=True, exist_ok=True)
+
+    template = (
+        "---\n"
+        "platforms: [linkedin, bluesky, mastodon]\n"
+        "---\n\n\n"
+    )
+
+    (post_dir / "post.md").write_text(template)
+    print(f"Created {post_dir / 'post.md'}")
+    subprocess.run([editor, str(post_dir / "post.md")], check=False)
+
+
 def main():
+    if "--new" in sys.argv:
+        _cmd_new()
+        return
+
     platforms, dry_run = parse_args(sys.argv[1:])
 
     if not platforms:

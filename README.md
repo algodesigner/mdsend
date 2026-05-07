@@ -87,6 +87,17 @@ mdsend --platforms bluesky
 mdsend --platforms bluesky --publish
 ```
 
+### Creating a new post
+
+```bash
+# Create a post directory and open the editor
+mdsend --new "my-post-slug"
+```
+
+This creates a directory like `2026-05-04_21-30_my-post-slug/` with
+a `post.md` file containing a front matter template, then opens it in
+your `$EDITOR` (or `vi` by default).
+
 ### Dry run
 
 `mdsend` runs in dry-run mode by default — it prints what would be posted
