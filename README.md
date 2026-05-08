@@ -2,6 +2,12 @@
 
 Write markdown posts, run `mdsend`, and it cross-posts to your social media platforms.
 
+The main purpose is simple: set up a git repo with a simple directory structure and publish from it to various destinations. Your posts are in a single unified format that works across different social media platforms. You get a version-controlled archive that can be queried and managed by AI should the need arise.
+
+Want to know what you've been focusing on, what your next posts should be, how to improve your writing, or which tags to use? Just ask your AI tool — it can read the repo and answer and provide you with a perspective.
+
+This approach keeps you disconnected from the destination network so you don't get pulled into everyone else's feeds.
+
 ## Supported platforms
 
 | Platform        | Max chars | Max media | API auth            |
@@ -117,3 +123,5 @@ Re-running is safe — already-published platforms are skipped.
 ## License
 
 BSD 3-Clause. See LICENSE.
+
+Happy microblogging! ☕
