@@ -1,5 +1,7 @@
 # mdsend — File-based social media publisher
 
+![mdsend](msend-image.jpeg)
+
 Write markdown posts, run `mdsend`, and it cross-posts to your social media platforms.
 
 The main purpose is simple: set up a git repo with a simple directory structure and publish from it to various destinations. Your posts are in a single unified format that works across different social media platforms. You get a version-controlled archive that can be queried and managed by AI should the need arise.
