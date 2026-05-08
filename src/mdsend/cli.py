@@ -9,6 +9,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from mdsend import core
 from mdsend.core import ALL_PLATFORMS, discover_posts
 from mdsend.platforms import PLATFORM_HANDLERS
@@ -71,6 +73,10 @@ def _cmd_new(slug: str):
 
 
 def main():
+    load_dotenv()
+    parent_dotenv = Path.cwd().parent / ".env"
+    if parent_dotenv.exists():
+        load_dotenv(parent_dotenv)
     platforms, dry_run, new_slug = parse_args(sys.argv[1:])
 
     if new_slug is not None:
@@ -142,6 +148,11 @@ def main():
                 result = handler(payload["texts"], payload["media"])
                 post.mark_platform_published(platform, result)
                 print(f"  \u2713 {platform}")
+            except KeyError as exc:
+                print(
+                    f"  \u2717 {platform}: missing environment variable {exc}. "
+                    f"Check your .env file or set the variable."
+                )
             except Exception as exc:
                 print(f"  \u2717 {platform}: {exc}")
         print()
