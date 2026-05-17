@@ -5,9 +5,10 @@ LinkedIn platform handler — post text, images, and link previews to LinkedIn.
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 import requests
+
+from mdsend.core import _extract_url
 
 LINKEDIN_API = "https://api.linkedin.com/v2"
 
@@ -60,15 +61,6 @@ def _linkedin_register_upload(file_path: Path) -> tuple[str, str]:
     upload_resp.raise_for_status()
 
     return upload_url, asset_urn
-
-
-def _extract_url(text: str) -> Optional[str]:
-    """Return the first http/https URL found in the text, or None."""
-    m = re.search(r"https?://[^\s]+", text)
-    if not m:
-        return None
-    url = m.group(0).rstrip(".,;:!?)\"']")
-    return url if url else None
 
 
 def _check_response(resp: requests.Response):

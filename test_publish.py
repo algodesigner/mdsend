@@ -343,9 +343,9 @@ class TestSplitSentences:
         result = Post.split_sentences("Hi! How are you? Fine.")
         assert result == ["Hi!", "How are you?", "Fine."]
 
-    def test_newline_split(self):
+    def test_newline_preserved(self):
         result = Post.split_sentences("First line.\nSecond line.\nThird.")
-        assert result == ["First line.", "Second line.", "Third."]
+        assert result == ["First line.\nSecond line.\nThird."]
 
     def test_trailing_whitespace_handling(self):
         result = Post.split_sentences("  Hello.   World.  ")
@@ -407,6 +407,70 @@ class TestPackThread:
 
 
 # ======================================================================
+# _pack_paragraphs
+# ======================================================================
+
+
+class TestPackParagraphs:
+    def test_single_para_under_budget(self):
+        result = Post._pack_paragraphs("Short paragraph.", 100, 25)
+        assert result == ["Short paragraph."]
+
+    def test_multiple_paras_one_chunk(self):
+        text = "First para.\n\nSecond para."
+        result = Post._pack_paragraphs(text, 200, 25)
+        assert result == ["First para.\n\nSecond para."]
+
+    def test_paragraphs_split_across_chunks(self):
+        para_a = "A" * 100
+        para_b = "B" * 100
+        para_c = "C" * 100
+        text = f"{para_a}\n\n{para_b}\n\n{para_c}"
+        result = Post._pack_paragraphs(text, 150, 25)
+        assert len(result) >= 2
+
+    def test_each_chunk_under_budget(self):
+        para_a = "A" * 200
+        para_b = "B" * 200
+        para_c = "C" * 200
+        text = f"{para_a}\n\n{para_b}\n\n{para_c}"
+        budget = 150 - THREAD_PREFIX_OVERHEAD
+        result = Post._pack_paragraphs(text, 150, 25)
+        for chunk in result:
+            assert len(chunk) <= budget
+
+    def test_long_para_sentence_split(self):
+        s = "X" * 80 + "."
+        para = " ".join([s] * 4)
+        result = Post._pack_paragraphs(para, 200, 25)
+        assert len(result) >= 2
+
+    def test_last_subchunk_merged_with_next_para(self):
+        s = "X" * 70 + "."
+        para1 = " ".join([s] * 3)
+        para2 = "Y" * 20
+        text = f"{para1}\n\n{para2}"
+        result = Post._pack_paragraphs(text, 150, 25)
+        assert len(result) == 3
+        assert result[-1].endswith("Y" * 20)
+
+    def test_blank_lines_normalized(self):
+        text = "First.\n\n\n\n\nSecond."
+        result = Post._pack_paragraphs(text, 200, 25)
+        assert result == ["First.\n\nSecond."]
+
+    def test_empty_text(self):
+        result = Post._pack_paragraphs("", 100, 25)
+        assert result == [""]
+
+    def test_max_threads_cap(self):
+        paras = "\n\n".join([f"Para{i}" for i in range(20)])
+        result = Post._pack_paragraphs(paras, 10, 5)
+        assert len(result) == 5
+        assert result[-1].endswith("\u2026")
+
+
+# ======================================================================
 # prepare with threading
 # ======================================================================
 
@@ -451,6 +515,45 @@ class TestPrepareThreading:
         payload = p.prepare("bluesky")
         assert len(payload["media"]) == 1
         assert payload["media"][0].name == "photo.jpg"
+
+    def test_url_moves_to_first_chunk(self, posts_dir):
+        d = posts_dir / "url-move"
+        d.mkdir()
+        para1 = "A" * 450
+        para2 = "B" * 50
+        url = "https://example.com/video"
+        text = f"{para1}\n\n{para2}\n\n{url}"
+        (d / "post.md").write_text(text)
+        p = Post(d)
+        payload = p.prepare("mastodon")
+        texts = payload["texts"]
+        assert len(texts) > 1
+        assert url in texts[0]
+
+    def test_url_already_in_first_chunk(self, posts_dir):
+        d = posts_dir / "url-first"
+        d.mkdir()
+        url = "https://example.com/video"
+        para1 = f"Check this: {url}"
+        para2 = "A" * 470
+        text = f"{para1}\n\n{para2}"
+        (d / "post.md").write_text(text)
+        p = Post(d)
+        payload = p.prepare("mastodon")
+        texts = payload["texts"]
+        assert len(texts) > 1
+        assert url in texts[0]
+
+    def test_newline_preserved_in_thread_chunk(self, posts_dir):
+        d = posts_dir / "nl-thread"
+        d.mkdir()
+        para = "X" * 240 + ".\n" + "Y" * 240 + ". " + "Z" * 50 + "."
+        (d / "post.md").write_text(para)
+        p = Post(d)
+        payload = p.prepare("mastodon")
+        texts = payload["texts"]
+        assert len(texts) > 1
+        assert any(".\n" in t for t in texts)
 
 
 # ======================================================================

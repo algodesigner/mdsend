@@ -111,11 +111,13 @@ your `$EDITOR` (or `vi` by default).
 `mdsend` runs in dry-run mode by default — it prints what would be posted
 without calling any API.  Use `--publish` to post live.
 
-### Multi-post threading (Bluesky)
+### Multi-post threading (Bluesky & Mastodon)
 
-Posts longer than 300 characters are automatically split into a threaded
-thread on Bluesky.  Each chunk is prefixed with `🧵 (n/N) ` so readers
-know it's part of a multi-part post.
+Posts longer than the platform limit are automatically split into threaded
+replies.  Each chunk is prefixed with `🧵 (n/N) ` so readers know it's
+part of a multi-part post.  Media is attached to the first chunk only.
+Links are moved to the first chunk so the preview card appears at the
+top of the thread.
 
 ### Idempotent publishing
 

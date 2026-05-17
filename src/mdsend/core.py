@@ -27,6 +27,7 @@ PLATFORMS = {
         "name": "Mastodon",
         "max_chars": 500,
         "media_count": 4,
+        "max_threads": 50,
     },
 }
 
@@ -81,6 +82,20 @@ def truncate(text: str, max_chars: int) -> str:
         return text
     print(f"  \u26a0\ufe0f  Text truncated from {len(text)} to {max_chars} chars")
     return text[: max_chars - 3].rsplit(" ", 1)[0] + "..."
+
+
+# ============================================================================
+# URL extraction
+# ============================================================================
+
+
+def _extract_url(text: str) -> Optional[str]:
+    """Return the first http/https URL found in the text, or None."""
+    m = re.search(r"https?://[^\s]+", text)
+    if not m:
+        return None
+    url = m.group(0).rstrip(".,;:!?)\"']")
+    return url if url else None
 
 
 # ============================================================================
@@ -198,7 +213,7 @@ class Post:
     def split_sentences(text: str) -> list[str]:
         if not text.strip():
             return [""]
-        parts = re.split(r"(?<=[.!?])\s+|(?<=\n)\s*", text)
+        parts = re.split(r"(?<=[.!?])[ \t]+", text)
         return [p.strip() for p in parts if p.strip()]
 
     @staticmethod
@@ -236,16 +251,77 @@ class Post:
     # Payload preparation
     # ------------------------------------------------------------------ #
 
+    @staticmethod
+    def _pack_paragraphs(text: str, max_chars: int, max_threads: int) -> list[str]:
+        """Pack text into threads, preserving paragraph breaks."""
+        if not text.strip():
+            return [""]
+        budget = max_chars - THREAD_PREFIX_OVERHEAD
+        paragraphs = [p.strip() for p in re.split(r"\n{2,}", text) if p.strip()]
+
+        chunks: list[str] = []
+        current: list[str] = []
+        current_len = 0
+
+        for para in paragraphs:
+            gap = 2 if current else 0
+
+            if current_len + gap + len(para) <= budget:
+                if current:
+                    current_len += gap
+                current.append(para)
+                current_len += len(para)
+            else:
+                if current:
+                    chunks.append("\n\n".join(current))
+                    current = []
+                    current_len = 0
+
+                if len(para) <= budget:
+                    current = [para]
+                    current_len = len(para)
+                else:
+                    sub = Post.pack_thread(
+                        Post.split_sentences(para), max_chars, max_threads
+                    )
+                    if sub:
+                        chunks.extend(sub[:-1])
+                        current = [sub[-1]]
+                        current_len = len(sub[-1])
+
+        if current:
+            chunks.append("\n\n".join(current))
+
+        if len(chunks) > max_threads:
+            chunks = chunks[:max_threads]
+            chunks[-1] = chunks[-1].rstrip() + "\u2026"
+
+        return chunks
+
     def prepare(self, platform: str) -> dict:
         cfg = PLATFORMS[platform]
         media = self.media_files[: cfg["media_count"]]
 
         if cfg.get("max_threads") and len(self.body) > cfg["max_chars"]:
-            sentences = self.split_sentences(self.body)
-            texts = self.pack_thread(
-                sentences, cfg["max_chars"], cfg["max_threads"]
+            texts = self._pack_paragraphs(
+                self.body, cfg["max_chars"], cfg["max_threads"]
             )
             print(f"  \u26a0\ufe0f  Text split into {len(texts)} chunks for threading")
+
+            url = _extract_url(self.body)
+            if url and len(texts) > 1:
+                for i, chunk in enumerate(texts):
+                    m = re.search(r"https?://\S+", chunk)
+                    if m:
+                        if i > 0:
+                            texts[i] = chunk[:m.start()] + chunk[m.end():]
+                            texts[i] = re.sub(r"[ \t]+", " ", texts[i]).strip()
+                            url_overhead = len(url) + 2
+                            budget = cfg["max_chars"] - THREAD_PREFIX_OVERHEAD - url_overhead
+                            if len(texts[0]) > budget:
+                                texts[0] = texts[0][:budget].rsplit(" ", 1)[0]
+                            texts[0] = texts[0].rstrip() + "\n\n" + url
+                        break
         else:
             texts = [truncate(self.body, cfg["max_chars"])]
 

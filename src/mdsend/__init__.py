@@ -9,11 +9,11 @@ from mdsend.core import (
     discover_posts,
     truncate,
     parse_front_matter,
+    _extract_url,
     ALL_PLATFORMS,
     THREAD_PREFIX_OVERHEAD,
 )
 from mdsend.cli import main, parse_args
-from mdsend.platforms.linkedin import _extract_url
 
 __all__ = [
     "Post",
