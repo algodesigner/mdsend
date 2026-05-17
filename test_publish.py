@@ -245,7 +245,7 @@ class TestExtractUrl:
 
     def test_url_with_text_after(self):
         url = _extract_url("Link: https://example.com. More text.")
-        assert url == "https://example.com."
+        assert url == "https://example.com"
 
     def test_url_at_end(self):
         url = _extract_url("See https://example.com/path")

@@ -64,8 +64,21 @@ def _linkedin_register_upload(file_path: Path) -> tuple[str, str]:
 
 def _extract_url(text: str) -> Optional[str]:
     """Return the first http/https URL found in the text, or None."""
-    m = re.search(r"https?://\S+", text)
-    return m.group(0) if m else None
+    m = re.search(r"https?://[^\s]+", text)
+    if not m:
+        return None
+    url = m.group(0).rstrip(".,;:!?)\"']")
+    return url if url else None
+
+
+def _check_response(resp: requests.Response):
+    """Raise a detailed error if the LinkedIn API returned a non-2xx status."""
+    if resp.status_code >= 400:
+        body = resp.text
+        msg = f"{resp.status_code} {resp.reason} for {resp.url}"
+        if body:
+            msg += f"\nResponse body: {body}"
+        raise requests.HTTPError(msg, response=resp)
 
 
 def post_to_linkedin(texts: list[str], media: list[Path]) -> dict:
@@ -79,17 +92,25 @@ def post_to_linkedin(texts: list[str], media: list[Path]) -> dict:
         _, asset_urn = _linkedin_register_upload(fp)
         media_assets.append(asset_urn)
 
-    share_category = "NONE"
     share_content: dict = {
         "shareCommentary": {"text": text},
-        "shareMediaCategory": share_category,
+        "shareMediaCategory": "NONE",
     }
 
     url = _extract_url(text)
     if url and not media_assets:
-        share_category = "ARTICLE"
-        share_content["shareMediaCategory"] = share_category
-        share_content["article"] = {"source": url}
+        clean_text = re.sub(r"https?://\S+", "", text)
+        clean_text = re.sub(r"[ \t]+", " ", clean_text)
+        lines = [line.strip() for line in clean_text.split("\n")]
+        clean_text = re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
+        share_content["shareCommentary"]["text"] = clean_text or text
+        share_content["shareMediaCategory"] = "ARTICLE"
+        share_content["media"] = [
+            {
+                "status": "READY",
+                "originalUrl": url,
+            }
+        ]
 
     share_body = {
         "author": author,
@@ -121,7 +142,7 @@ def post_to_linkedin(texts: list[str], media: list[Path]) -> dict:
         headers=_linkedin_headers(),
         json=share_body,
     )
-    resp.raise_for_status()
+    _check_response(resp)
     post_id = resp.headers.get("X-RestLi-Id", "unknown")
     print(f"  [LinkedIn] Posted \u2014 post ID: {post_id}")
     return {"status": "ok", "platform": "linkedin", "post_id": post_id}

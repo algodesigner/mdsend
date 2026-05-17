@@ -73,10 +73,7 @@ def _cmd_new(slug: str):
 
 
 def main():
-    load_dotenv()
-    parent_dotenv = Path.cwd().parent / ".env"
-    if parent_dotenv.exists():
-        load_dotenv(parent_dotenv)
+    load_dotenv(Path.cwd() / ".env")
     platforms, dry_run, new_slug = parse_args(sys.argv[1:])
 
     if new_slug is not None:
