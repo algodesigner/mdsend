@@ -10,8 +10,8 @@ def post_to_mastodon(texts: list[str], media: list[Path]) -> dict:
     from mastodon import Mastodon
 
     client = Mastodon(
-        access_token=os.environ["MASTODON_ACCESS_TOKEN"],
-        api_base_url=os.environ["MASTODON_INSTANCE"],
+        access_token=os.environ["MSEND_MASTODON_ACCESS_TOKEN"],
+        api_base_url=os.environ["MSEND_MASTODON_INSTANCE"],
     )
 
     media_ids = []

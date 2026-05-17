@@ -47,8 +47,8 @@ def post_to_bluesky(texts: list[str], media: list[Path]) -> dict:
 
     client = Client()
     client.login(
-        os.environ["BLUESKY_HANDLE"],
-        os.environ["BLUESKY_APP_PASSWORD"],
+        os.environ["MSEND_BLUESKY_HANDLE"],
+        os.environ["MSEND_BLUESKY_APP_PASSWORD"],
     )
 
     image_data = []

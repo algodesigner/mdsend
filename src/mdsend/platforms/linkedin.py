@@ -14,14 +14,14 @@ LINKEDIN_API = "https://api.linkedin.com/v2"
 
 def _linkedin_headers() -> dict:
     return {
-        "Authorization": f"Bearer {os.environ['LINKEDIN_ACCESS_TOKEN']}",
+        "Authorization": f"Bearer {os.environ['MSEND_LINKEDIN_ACCESS_TOKEN']}",
         "Content-Type": "application/json",
         "X-Restli-Protocol-Version": "2.0.0",
     }
 
 
 def _linkedin_register_upload(file_path: Path) -> tuple[str, str]:
-    author = os.environ["LINKEDIN_PERSON_URN"]
+    author = os.environ["MSEND_LINKEDIN_PERSON_URN"]
 
     register_payload = {
         "registerUploadRequest": {
@@ -52,7 +52,7 @@ def _linkedin_register_upload(file_path: Path) -> tuple[str, str]:
         upload_resp = requests.post(
             upload_url,
             headers={
-                "Authorization": f"Bearer {os.environ['LINKEDIN_ACCESS_TOKEN']}",
+                "Authorization": f"Bearer {os.environ['MSEND_LINKEDIN_ACCESS_TOKEN']}",
                 "Content-Type": "application/octet-stream",
             },
             data=f,
@@ -70,7 +70,8 @@ def _extract_url(text: str) -> Optional[str]:
 
 def post_to_linkedin(texts: list[str], media: list[Path]) -> dict:
     text = texts[0]
-    author = os.environ["LINKEDIN_PERSON_URN"]
+    author = os.environ["MSEND_LINKEDIN_PERSON_URN"]
+
 
     media_assets = []
     for fp in media:
