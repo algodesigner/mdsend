@@ -41,6 +41,93 @@ def _extract_hashtag_facets(text: str) -> list:
     return facets
 
 
+def _extract_url_facets(text: str) -> list:
+    from atproto import models
+
+    facets = []
+    for m in re.finditer(r"https?://\S+", text):
+        url = m.group(0).rstrip(".,;:!?)\"']")
+        if not url:
+            continue
+        byte_start = len(text[: m.start()].encode("utf-8"))
+        byte_end = byte_start + len(m.group(0).encode("utf-8"))
+        facets.append(
+            models.AppBskyRichtextFacet.Main(
+                index=models.AppBskyRichtextFacet.ByteSlice(
+                    byteStart=byte_start,
+                    byteEnd=byte_end,
+                ),
+                features=[
+                    models.AppBskyRichtextFacet.Link(uri=url),
+                ],
+            )
+        )
+    return facets
+
+
+def _fetch_og_metadata(url: str) -> Optional[dict]:
+    import urllib.error
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (compatible; mdsend/0.3; "
+                    "+https://github.com/vshurupov/mdsend)"
+                ),
+            },
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode("utf-8", errors="replace")
+    except Exception:
+        return None
+
+    title = None
+    m = re.search(
+        r'<meta\s+[^>]*property="og:title"[^>]*content="([^"]*)"',
+        html,
+        re.IGNORECASE,
+    )
+    if m:
+        title = m.group(1)
+    else:
+        m = re.search(
+            r'<meta\s+[^>]*name="twitter:title"[^>]*content="([^"]*)"',
+            html,
+            re.IGNORECASE,
+        )
+        if m:
+            title = m.group(1)
+        else:
+            m = re.search(r"<title>([^<]*)</title>", html, re.IGNORECASE)
+            if m:
+                title = m.group(1).strip()
+
+    if not title:
+        return None
+
+    desc = None
+    m = re.search(
+        r'<meta\s+[^>]*property="og:description"[^>]*content="([^"]*)"',
+        html,
+        re.IGNORECASE,
+    )
+    if m:
+        desc = m.group(1)
+    else:
+        m = re.search(
+            r'<meta\s+[^>]*name="description"[^>]*content="([^"]*)"',
+            html,
+            re.IGNORECASE,
+        )
+        if m:
+            desc = m.group(1)
+
+    return {"title": title, "description": desc or ""}
+
+
 def post_to_bluesky(texts: list[str], media: list[Path]) -> dict:
     from atproto import Client, models
     from PIL import Image as PilImage
@@ -115,9 +202,37 @@ def post_to_bluesky(texts: list[str], media: list[Path]) -> dict:
 
     total = len(texts)
 
+    # --- URL link preview (best-effort, first chunk only) ---
+    first_url = None
+    external_embed = None
+    if not image_data and texts:
+        m = re.search(r"https?://\S+", texts[0])
+        if m:
+            first_url = m.group(0).rstrip(".,;:!?)\"']")
+
+    if first_url:
+        print(f"  [Bluesky] Fetching link preview for: {first_url}")
+        og = _fetch_og_metadata(first_url)
+        if og:
+            external_embed = models.AppBskyEmbedExternal.Main(
+                external=models.AppBskyEmbedExternal.External(
+                    uri=first_url,
+                    title=og["title"],
+                    description=og["description"],
+                )
+            )
+            print(f"  [Bluesky] Link card: {og['title']}")
+
     for i, chunk in enumerate(texts):
         prefix = _make_thread_prefix(i + 1, total) if total > 1 else ""
         post_text = prefix + chunk
+
+        url_facets = _extract_url_facets(post_text)
+        all_facets = (_extract_hashtag_facets(post_text) or []) + (url_facets or [])
+
+        current_embed = embed if i == 0 else None
+        if i == 0 and current_embed is None and external_embed:
+            current_embed = external_embed
 
         reply_ref = None
         if root_uri is not None and parent_uri is not None:
@@ -135,9 +250,9 @@ def post_to_bluesky(texts: list[str], media: list[Path]) -> dict:
         record = models.AppBskyFeedPost.Record(
             text=post_text,
             createdAt=now,
-            embed=embed if i == 0 else None,
+            embed=current_embed,
             reply=reply_ref,
-            facets=_extract_hashtag_facets(post_text) or None,
+            facets=all_facets or None,
         )
 
         try:
